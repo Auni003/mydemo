@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "demo"
+        CONTAINER_NAME = "myapi"
+        API_PORT = "8290"
+        MANAGEMENT_PORT = "8253"
+        INTERNAL_PORT = "9164"
+    }
+
+    stages {
+        stage('Prepare') {
+            steps {
+                echo 'Repository cloned by Jenkins automatically'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building Docker image'
+                sh "docker build -t ${IMAGE_NAME}:v1 ."
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                echo 'Stopping old container if exists'
+                sh "docker rm -f ${CONTAINER_NAME} || true"
+
+                echo 'Running Docker container'
+                sh """
+                    docker run -d \
+                    -p ${API_PORT}:${API_PORT} \
+                    -p ${MANAGEMENT_PORT}:${MANAGEMENT_PORT} \
+                    -p ${INTERNAL_PORT}:${INTERNAL_PORT} \
+                    --name ${CONTAINER_NAME} \
+                    ${IMAGE_NAME}:v1
+                """
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                echo 'Listing running containers'
+                sh "docker ps"
+            }
+        }
+
+        stage('Test API') {
+            steps {
+                echo 'Testing API endpoint'
+                sh "curl -I http://localhost:${API_PORT} || true"
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline finished!'
+        }
+    }
+}
